@@ -1,0 +1,110 @@
+data_path = " "
+morph = readDiscreteCharacterData(data_path + "/Data/Chang_Augment.nex")
+
+
+moves = VectorMoves()
+monitors = VectorMonitors()
+
+trees = readTrees(data_path + "/Trees/ieo_fifty.nex") 
+
+treetrace = treeTrace(trees)
+psi ~ dnEmpiricalTree(treetrace)
+moves.append( mvEmpiricalTree(psi, weight=10.0) )
+
+
+map_tree = readTrees(data_path + "/Trees/ChangA3.tree")[1]
+
+
+
+n_gain ~ dnUniform(0,5)
+n_loss ~ dnUniform(10,30)
+
+
+moves.append( mvSlide(n_gain, delta=1.0, tune=true, weight=2.0) )
+moves.append( mvSlide(n_gain, delta=0.1, tune=true, weight=2.0) )
+moves.append( mvSlide(n_gain, delta=0.01, tune=true, weight=2.0) )
+
+
+moves.append( mvSlide(n_loss, delta=1.0, tune=true, weight=2.0) )
+moves.append( mvSlide(n_loss, delta=0.1, tune=true, weight=2.0) )
+moves.append( mvSlide(n_loss, delta=0.01, tune=true, weight=2.0) )
+
+
+rate_pr_gain := psi.treeLength() / n_gain
+rate_pr_loss := psi.treeLength() / n_loss
+
+q_01 ~ dnExponential(rate_pr_gain)
+q_10 ~ dnExponential(rate_pr_loss)
+ 
+
+moves.append( mvScale( q_01, weight=2 ) )
+moves.append( mvScale( q_10, weight=2 ) )
+
+
+for (i in 1:6) {
+    for (j in 1:6) {
+        rates[i][j] <- 0.0
+        if ( i != j ) {
+        rates[1][j] := q_01
+        rates[i][1] := q_10
+        }    
+    }
+}
+
+
+Q := fnFreeK( rates, rescaled=FALSE ) 
+
+
+
+phyMorph ~ dnPhyloCTMC(tree=psi, Q=Q, type="Standard") 
+
+
+phyMorph.clamp( morph )
+
+
+
+mymodel = model ( Q )
+
+n_gen = 100
+
+monitors.append( mnModel(filename="output/Postposed_Conjunction_ARD.log", printgen=n_gen) )
+
+monitors.append( mnScreen(printgen=n_gen) )
+
+monitors.append( mnFile( filename="output/Postposed_Conjunction_ARD.trees", printgen=n_gen, psi ) ) 
+
+monitors.append( mnJointConditionalAncestralState(tree=psi, ctmc=phyMorph, filename="output/Postposed_Conjunction_ARD_states.log", type="Standard", printgen=n_gen, withStartStates=FALSE) )
+
+mymcmc = mcmc(mymodel, monitors, moves, nruns=6, combine="mixed")
+
+mymcmc.burnin(generations=100000,tuningInterval=200)
+
+#Comment this out for the first run              
+#mymcmc.initializeFromCheckpoint("output/Postposed_Conjunction_ARD.state") 
+
+
+mymcmc.run(generations=1000000, 
+		checkpointInterval=1000, 
+  checkpointFile="output/Postposed_Conjunction_ARD.state")
+
+mymcmc.operatorSummary()
+
+
+
+####################################
+######Ancestral State Tree##########
+####################################
+
+
+ancestral_state_trace = readAncestralStateTrace("output/Postposed_Conjunction_ARD_states.log") 
+
+ancestral_state_tree_trace = readAncestralStateTreeTrace("output/Postposed_Conjunction_ARD.trees") 
+
+ancestral_state_tree = ancestralStateTree(tree=map_tree, include_start_states = FALSE, tree_trace=ancestral_state_tree_trace, ancestral_state_trace_vector=ancestral_state_trace, file="output/ASE_Postposed_Conjunction_ARD.tree",  summary_statistic = "MAP", site=1)  
+
+
+
+writeNexus(ancestral_state_tree, filename = "output/ASE_Postposed_Conjunction_ARD.tree")
+
+
+
