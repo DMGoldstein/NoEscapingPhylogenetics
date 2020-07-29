@@ -1,4 +1,4 @@
-# Data and source code for the paper "There's no escaping phylogenetics"
+# Data and source code for the paper "There's no escaping phylogenetics" (Goldstein forthcoming)
 
 
 ## Overview
