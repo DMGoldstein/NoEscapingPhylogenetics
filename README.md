@@ -7,7 +7,7 @@ This repository contains the data and source code for the paper "There's no esca
 
 ## Data
 
-The data used in the paper can be found in the folder `Data`, which contains three Nexus files: `Chang_kwe.nex` and `Chang_Augment.nex`. These contain the data for conjunctions that descend from \*/k^we/ and the augment.
+The data used in the paper can be found in the folder `Data`, which contains three Nexus files: `Chang_kwe.nex` and `Chang_Augment.nex`. These contain the data for conjunctions that descend from \*/k<sup>w</sup>e/ and the augment.
 
 ## Code
 
