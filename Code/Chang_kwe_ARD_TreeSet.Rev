@@ -1,0 +1,115 @@
+clear()
+
+data_path = ""
+
+morph = readDiscreteCharacterData(data_path + "Chang_kwe.nex")
+
+
+moves = VectorMoves()
+monitors = VectorMonitors()
+
+
+trees = readTrees(data_path + "ieo_hundred.nex") 
+
+treetrace = treeTrace(trees)
+psi ~ dnEmpiricalTree(treetrace)
+moves.append( mvEmpiricalTree(psi) )
+
+#This is the Chang A3 MAP tree
+map_tree = readTrees(data_path + "ChangA3.tree")[1]
+
+
+
+#Hyperpriors
+n_gain ~ dnUniform(0,5)
+n_loss ~ dnUniform(10,30)
+
+
+moves.append( mvSlide(n_gain, delta=1.0, tune=true, weight=2.0) )
+moves.append( mvSlide(n_gain, delta=0.1, tune=true, weight=2.0) )
+moves.append( mvSlide(n_gain, delta=0.01, tune=true, weight=2.0) )
+
+
+moves.append( mvSlide(n_loss, delta=1.0, tune=true, weight=2.0) )
+moves.append( mvSlide(n_loss, delta=0.1, tune=true, weight=2.0) )
+moves.append( mvSlide(n_loss, delta=0.01, tune=true, weight=2.0) )
+
+
+rate_pr_gain := psi.treeLength() / n_gain
+rate_pr_loss := psi.treeLength() / n_loss
+
+q_01 ~ dnExponential(rate_pr_gain)
+q_10 ~ dnExponential(rate_pr_loss)
+ 
+moves.append( mvScale( q_01, lambda=0.01,  weight=2 ) )
+moves.append( mvScale( q_01, lambda=0.1,  weight=2 ) )
+moves.append( mvScale( q_01, lambda=1, weight=2 ) )
+
+
+moves.append( mvScale( q_10, lambda=0.01, weight=2 ) )
+moves.append( mvScale( q_10, lambda=0.1, weight=2 ) )
+moves.append( mvScale( q_10, lambda=1, weight=2 ) )
+
+
+
+rates := [ [  0.0, q_01 ], 
+			[ q_10, 0.0] ]
+
+
+Q := fnFreeK( rates, rescaled=FALSE ) 
+
+
+
+phyMorph ~ dnPhyloCTMC(tree=psi, Q=Q, type="Standard") 
+
+
+phyMorph.clamp( morph )
+
+
+
+mymodel = model ( Q )
+
+n_gen = 100
+
+monitors.append( mnModel(filename="output/kwe_ARD_TreeSet.log", printgen=n_gen) )
+
+monitors.append( mnScreen(printgen=n_gen) )
+
+monitors.append( mnFile( filename="output/kwe_ARD_TreeSet.trees", printgen=n_gen, psi ) ) 
+
+monitors.append( mnJointConditionalAncestralState(tree=psi, ctmc=phyMorph, filename="output/kwe_ARD_TreeSet_states.log", type="Standard", printgen=n_gen, withStartStates=FALSE) )
+
+monitors.append( mnStochasticCharacterMap(ctmc=phyMorph, filename="output/kwe_ARD_TreeSet_maps.log", printgen=n_gen) )
+
+
+mymcmc = mcmc(mymodel, monitors, moves, nruns=6, combine="mixed")
+
+mymcmc.burnin(generations=20000,tuningInterval=200)
+
+#Comment this out for the first run              
+#mymcmc.initializeFromCheckpoint("output/kwe_ARD_TreeSet.state") 
+
+
+mymcmc.run(generations=100000, 
+		checkpointInterval=1000, 
+  checkpointFile="output/kwe_ARD_TreeSet.state")
+
+mymcmc.operatorSummary()
+
+
+
+####################################
+######Ancestral State Tree##########
+####################################
+
+
+ancestral_state_trace = readAncestralStateTrace("output/kwe_ARD_TreeSet_states.log") 
+
+ancestral_state_tree_trace = readAncestralStateTreeTrace("output/kwe_ARD_TreeSet.trees") 
+
+ancestral_state_tree = ancestralStateTree(tree=map_tree, include_start_states = FALSE, tree_trace=ancestral_state_tree_trace, ancestral_state_trace_vector=ancestral_state_trace, file="output/ASE_kwe_ARD_TreeSet.tree",  summary_statistic = "MAP", site=1)  
+
+
+
+writeNexus(ancestral_state_tree, filename = "output/ASE_kwe_ARD_TreeSet.tree")
+
