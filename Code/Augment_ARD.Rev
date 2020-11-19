@@ -5,14 +5,14 @@ morph = readDiscreteCharacterData(data_path + "Chang_Augment.nex")
 moves = VectorMoves()
 monitors = VectorMonitors()
 
-trees = readTrees(data_path + "/Trees/ieo_fifty.nex") 
+trees = readTrees(data_path + "ieo_hundred.nex") 
 
 treetrace = treeTrace(trees)
 psi ~ dnEmpiricalTree(treetrace)
 moves.append( mvEmpiricalTree(psi, weight=10.0) )
 
 
-map_tree = readTrees(data_path + "/Trees/ChangA3.tree")[1]
+map_tree = readTrees(data_path + "ChangA3.tree")[1]
 
 
 n_gain ~ dnUniform(0,2)
@@ -73,12 +73,12 @@ monitors.append( mnJointConditionalAncestralState(tree=psi, ctmc=phyMorph, filen
 
 mymcmc = mcmc(mymodel, monitors, moves, nruns=6, combine="mixed")
 
-mymcmc.burnin(generations=100000, tuningInterval=200)
+mymcmc.burnin(generations=20000, tuningInterval=200)
 
 #Comment this out for the first run              
 #mymcmc.initializeFromCheckpoint("output/Augment_ARD.state") 
 
-mymcmc.run(generations=1000000,checkpointInterval=1000,checkpointFile="output/Augment_ARD.state")
+mymcmc.run(generations=100000,checkpointInterval=1000,checkpointFile="output/Augment_ARD.state")
 
 mymcmc.operatorSummary()
 
